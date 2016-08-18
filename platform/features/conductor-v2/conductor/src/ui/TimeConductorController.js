@@ -37,19 +37,18 @@ define(
                 self[key] = self[key].bind(self);
             });
 
+            this.$scope = $scope;
             this.conductorViewService = conductorViewService;
             this.conductor = timeConductor;
+            this.modes = conductorViewService.availableModes();
+            this.validation = new TimeConductorValidation(this.conductor);
 
             // Construct the provided time system definitions
-            this._timeSystems = timeSystems.map(function (timeSystemConstructor){
+            this.timeSystems = timeSystems.map(function (timeSystemConstructor){
                 return timeSystemConstructor();
             });
 
-            this.modes = conductorViewService.availableModes();
-
-            this.validation = new TimeConductorValidation(this.conductor);
-
-            this.$scope = $scope;
+            //Set the initial state of the view based on current time conductor
             this.initializeScope();
 
             this.conductor.on('bounds', this.setFormFromBounds);
@@ -58,31 +57,28 @@ define(
             });
             this.conductor.on('timeSystem', this.changeTimeSystem);
 
-            //This also has the effect of initializing the time conductor. This
-            // should probably happen from somewhere else though.
+            // If no mode selected, select fixed as the default
             if (!this.conductorViewService.mode()) {
-                // Default to fixed mode
                 this.setMode('fixed');
             }
         }
 
+        /**
+         * @private
+         */
         TimeConductorController.prototype.initializeScope = function() {
-            /*
-             Set time Conductor bounds in the form
-             */
+            //Set time Conductor bounds in the form
             this.$scope.boundsModel = this.conductor.bounds();
 
             //If conductor has a time system selected already, populate the
-            // form from it
+            //form from it
             this.$scope.timeSystemModel = {};
             if (this.conductor.timeSystem()) {
                 this.setFormFromTimeSystem(this.conductor.timeSystem());
             }
 
-            /*
-             Represents the various modes, and the currently
-             selected mode in the view
-             */
+            //Represents the various modes, and the currently selected mode
+            //in the view
             this.$scope.modeModel = {
                 options: this.conductorViewService.availableModes()
             };
@@ -90,7 +86,7 @@ define(
             var mode = this.conductorViewService.mode();
             if (mode) {
                 //If view already defines a mode (eg. controller is being
-                // initialized after navigation), then pre-populate form
+                // initialized after navigation), then pre-populate form.
                 this.setFormFromMode(mode);
                 var deltas = this.conductorViewService.deltas();
                 if (deltas) {
@@ -101,8 +97,9 @@ define(
 
             this.setFormFromBounds(this.conductor.bounds());
 
+            // Watch scope for selection of mode or time system by user
             this.$scope.$watch('modeModel.selectedKey', this.setMode);
-            this.$scope.$watch('timeSystem', this.setTimeSystem);
+            this.$scope.$watch('timeSystem', this.changeTimeSystem);
         };
 
         /**
@@ -185,12 +182,6 @@ define(
             }
         };
 
-        TimeConductorController.prototype.selectTickSource = function (timeSystem, sourceType) {
-            return timeSystem.tickSources().filter(function (source){
-                return source.type() === sourceType;
-            })[0];
-        };
-
         /**
          * Change the selected Time Conductor mode. This will call destroy
          * and initialization functions on the relevant modes, setting
@@ -213,7 +204,7 @@ define(
          * @see TimeConductorController#setTimeSystem
          */
         TimeConductorController.prototype.selectTimeSystemByKey = function(key){
-            var selected = this._timeSystems.find(function (timeSystem){
+            var selected = this.timeSystems.find(function (timeSystem){
                 return timeSystem.metadata.key === key;
             });
             this.conductor.timeSystem(selected, selected.defaults().bounds);

@@ -26,6 +26,15 @@ define(
     ],
     function (TimeConductorMode) {
 
+        /**
+         * A class representing the state of the time conductor view. This
+         * exposes details of the UI that are not represented on the
+         * TimeConductor API itself such as modes and deltas.
+         *
+         * @param conductor
+         * @param timeSystems
+         * @constructor
+         */
         function TimeConductorViewService(conductor, timeSystems) {
             this._timeSystems = timeSystems = timeSystems.map(
                 function (timeSystemConstructor) {
@@ -34,6 +43,16 @@ define(
 
             this._conductor = conductor;
             this._mode = undefined;
+
+            /**
+             * @typedef {object} ModeDefinition
+             * @property {string} key A unique identifying key for this mode
+             * @property {string} cssClass The css class for the glyph
+             * representing this mode
+             * @property {string} label A short label for this mode
+             * @property {string} name A longer name for the mode
+             * @property {string} description A description of the mode
+             */
             this._availableModes = {
                 'fixed': {
                     key: 'fixed',
@@ -75,6 +94,25 @@ define(
             }
         }
 
+        /**
+         * Getter/Setter for the Time Conductor Mode. Modes determine the
+         * behavior of the time conductor, especially with regards to the
+         * bounds and how they change with time.
+         *
+         * In fixed mode, the bounds do not change with time, but can be
+         * modified by the used
+         *
+         * In realtime mode, the bounds change with time. Bounds are not
+         * directly modifiable by the user, however deltas can be.
+         *
+         * In Latest Available Data (LAD) mode, the bounds are updated when
+         * data is received. As with realtime mode the
+         *
+         * @param {string} newModeKey One of 'fixed', 'realtime', or 'LAD'
+         * @returns {string} the current mode, one of 'fixed', 'realtime',
+         * or 'LAD'.
+         *
+         */
         TimeConductorViewService.prototype.mode = function (newModeKey) {
             if (arguments.length === 1) {
                 var timeSystem = this._conductor.timeSystem();
@@ -99,16 +137,57 @@ define(
             return this._mode ? this._mode.metadata().key : undefined;
         };
 
+        /**
+         * @typedef {object} Delta
+         * @property {number} start Used to set the start bound of the
+         * TimeConductor on tick. A positive value that will be subtracted
+         * from the value provided by a tick source to determine the start
+         * bound.
+         * @property {number} end Used to set the end bound of the
+         * TimeConductor on tick. A positive value that will be added
+         * from the value provided by a tick source to determine the start
+         * bound.
+         */
+        /**
+         * Deltas define the offset from the latest time value provided by
+         * the current tick source. Deltas are only valid in realtime or LAD
+         * modes.
+         *
+         * Realtime mode:
+         *     - start: A time in ms before now which will be used to
+         *     determine the 'start' bound on tick
+         *     - end: A time in ms after now which will be used to determine
+         *     the 'end' bound on tick
+         *
+         * LAD mode:
+         *     - start: A time in ms before the timestamp of the last data
+         *     received which will be used to determine the 'start' bound on
+         *     tick
+         *     - end: A time in ms after the timestamp of the last data received
+         *     which will be used to determine the 'end' bound on tick
+         * @returns {Delta} current value of the delta
+         */
+        TimeConductorViewService.prototype.deltas = function () {
+            return this._mode.deltas.apply(this._mode, arguments)
+        };
+
+        /**
+         * Availability of modes depends on the time systems and tick
+         * sources available. For example, Latest Available Data mode will
+         * not be available if there are no time systems and tick sources
+         * that support LAD mode.
+         * @returns {ModeDefinition[]}
+         */
         TimeConductorViewService.prototype.availableModes = function () {
             return this._availableModes;
         };
 
+        /**
+         * Availability of time systems depends on the currently selected
+         * mode. Time systems and tick sources are mode dependent
+         */
         TimeConductorViewService.prototype.availableTimeSystems = function () {
             return this._mode.availableTimeSystems();
-        }
-
-        TimeConductorViewService.prototype.deltas = function () {
-            return this._mode.deltas.apply(this._mode, arguments)
         };
 
         return TimeConductorViewService;
